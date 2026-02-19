@@ -1,50 +1,26 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import tempfile
-import os
+from database import init_main_db
+from routes import auth, pdfs, quiz
 
-from pdf_parser import extract_text_from_pdf
-from quiz_generator import generate_quiz
-
-app = FastAPI(title="PDF Quiz Generator API")
+app = FastAPI(title="MedQuiz AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server
-        "http://localhost:3000",   # Docker / nginx
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Initialise main DB on startup
+@app.on_event("startup")
+def startup():
+    init_main_db()
 
-@app.post("/upload-and-generate")
-async def upload_and_generate(
-    file: UploadFile = File(...),
-    num_questions: int = 5,
-    difficulty: str = "medium",
-):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-
-    # Save to a temp file so pdfplumber can open it
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        contents = await file.read()
-        tmp.write(contents)
-        tmp_path = tmp.name
-
-    try:
-        text = extract_text_from_pdf(tmp_path)
-        if not text.strip():
-            raise HTTPException(status_code=422, detail="Could not extract text from this PDF.")
-
-        quiz = generate_quiz(text, num_questions=num_questions, difficulty=difficulty)
-        return {"status": "success", "quiz": quiz}
-    finally:
-        os.unlink(tmp_path)
-
+app.include_router(auth.router)
+app.include_router(pdfs.router)
+app.include_router(quiz.router)
 
 @app.get("/health")
 def health():
