@@ -2,18 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System dependencies for pdfplumber / poppler
 RUN apt-get update && apt-get install -y \
-    libpoppler-cpp-dev \
-    poppler-utils \
+    libpoppler-cpp-dev poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps first (better layer caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
 COPY . .
+
+# Persistent data lives here (mounted as volume)
+RUN mkdir -p /data
 
 EXPOSE 8000
 
