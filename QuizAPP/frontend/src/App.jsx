@@ -1,56 +1,61 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useAuth } from "./context/AuthContext";
+import AuthPage from "./components/AuthPage";
 import Library from "./components/Library";
 import QuizSection from "./components/QuizSection";
 import ResultsSummary from "./components/ResultsSummary";
 
 export default function App() {
-  const [stage, setStage] = useState("library"); // library | quiz | results
-  const [quiz, setQuiz] = useState(null);
+  const { user, loading, authHeader } = useAuth();
+  const [stage, setStage]     = useState("library");
+  const [quiz, setQuiz]       = useState(null);
+  const [activePdf, setActivePdf] = useState(null);
   const [answers, setAnswers] = useState({});
-  const [activePDF, setActivePDF] = useState(null);
-  const [progress, setProgress] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("quiz-progress") || "{}");
-    } catch {
-      return {};
-    }
-  });
 
-  useEffect(() => {
-    localStorage.setItem("quiz-progress", JSON.stringify(progress));
-  }, [progress]);
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <span className="lib-logo">⚕</span>
+        <p>Loading…</p>
+      </div>
+    );
+  }
 
-  function handleQuizReady(quizData, pdfName) {
+  if (!user) return <AuthPage />;
+
+  async function handleQuizReady(quizData, pdf) {
     setQuiz(quizData);
-    setActivePDF(pdfName);
+    setActivePdf(pdf);
     setAnswers({});
     setStage("quiz");
   }
 
-  function handleQuizComplete(finalAnswers) {
+  async function handleQuizComplete(finalAnswers) {
     setAnswers(finalAnswers);
-    // Update progress for this PDF
+
     const correct = Object.values(finalAnswers).filter((a) => a.isCorrect).length;
-    const total = quiz.questions.length;
-    setProgress((prev) => {
-      const existing = prev[activePDF] || { totalAnswered: 0, totalCorrect: 0, sessions: 0 };
-      return {
-        ...prev,
-        [activePDF]: {
-          totalAnswered: existing.totalAnswered + total,
-          totalCorrect: existing.totalCorrect + correct,
-          sessions: existing.sessions + 1,
-          lastScore: Math.round((correct / total) * 100),
-          lastSession: new Date().toLocaleDateString(),
-        },
-      };
+    const total   = quiz.questions.length;
+    const pct     = Math.round((correct / total) * 100);
+
+    // Save progress to server
+    await fetch("/api/quiz/save-progress", {
+      method: "POST",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pdf_id:             activePdf.id,
+        pdf_name:           activePdf.name,
+        questions_answered: total,
+        questions_correct:  correct,
+        score_pct:          pct,
+      }),
     });
+
     setStage("results");
   }
 
   function handleRestart() {
     setQuiz(null);
-    setActivePDF(null);
+    setActivePdf(null);
     setAnswers({});
     setStage("library");
   }
@@ -58,12 +63,12 @@ export default function App() {
   return (
     <div className="app">
       {stage === "library" && (
-        <Library progress={progress} onQuizReady={handleQuizReady} />
+        <Library onQuizReady={handleQuizReady} />
       )}
       {stage === "quiz" && (
         <QuizSection
           quiz={quiz}
-          pdfName={activePDF}
+          pdfName={activePdf?.name}
           onComplete={handleQuizComplete}
           onRestart={handleRestart}
         />
@@ -72,12 +77,10 @@ export default function App() {
         <ResultsSummary
           quiz={quiz}
           answers={answers}
-          pdfName={activePDF}
-          progress={progress[activePDF]}
+          pdfName={activePdf?.name}
           onRestart={handleRestart}
         />
       )}
     </div>
   );
 }
-
