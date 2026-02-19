@@ -10,8 +10,11 @@ services:
     restart: unless-stopped
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
     ports:
       - "8000:8000"
+    volumes:
+      - quiz_data:/data       # persistent DB + PDF storage
     networks:
       - quiz-network
 
@@ -27,6 +30,9 @@ services:
       - backend
     networks:
       - quiz-network
+
+volumes:
+  quiz_data:                  # named volume survives container restarts
 
 networks:
   quiz-network:
