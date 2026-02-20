@@ -14,7 +14,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - quiz_data:/data       # persistent DB + PDF storage
+      - quiz_data:/data
     networks:
       - quiz-network
 
@@ -32,7 +32,7 @@ services:
       - quiz-network
 
 volumes:
-  quiz_data:                  # named volume survives container restarts
+  quiz_data:
 
 networks:
   quiz-network:

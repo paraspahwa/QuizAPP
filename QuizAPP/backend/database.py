@@ -4,36 +4,27 @@ import os
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 MAIN_DB  = os.path.join(DATA_DIR, "main.db")
 
-
-# ── Helpers ─────────────────────────────────────────────────────
-
 def get_main_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(MAIN_DB)
     conn.row_factory = sqlite3.Row
     return conn
 
-
 def get_user_dir(user_id: int) -> str:
     path = os.path.join(DATA_DIR, "users", str(user_id))
     os.makedirs(path, exist_ok=True)
     return path
-
 
 def get_user_pdfs_dir(user_id: int) -> str:
     path = os.path.join(get_user_dir(user_id), "pdfs")
     os.makedirs(path, exist_ok=True)
     return path
 
-
 def get_user_db(user_id: int):
     db_path = os.path.join(get_user_dir(user_id), "data.db")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
-
-
-# ── Initializers ────────────────────────────────────────────────
 
 def init_main_db():
     conn = get_main_db()
@@ -49,7 +40,6 @@ def init_main_db():
     """)
     conn.commit()
     conn.close()
-
 
 def init_user_db(user_id: int):
     conn = get_user_db(user_id)

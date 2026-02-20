@@ -13,7 +13,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialise main DB on startup
 @app.on_event("startup")
 def startup():
     init_main_db()

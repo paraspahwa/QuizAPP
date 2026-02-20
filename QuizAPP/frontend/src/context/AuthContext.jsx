@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from "react";
-
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -9,9 +8,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } })
         .then((r) => (r.ok ? r.json() : null))
         .then((u) => { setUser(u); setLoading(false); })
         .catch(() => { logout(); setLoading(false); });
@@ -43,6 +40,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
