@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medquizai-frontend
+  namespace: medquizai
+  labels:
+    app: medquizai-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: medquizai-frontend
+  template:
+    metadata:
+      labels:
+        app: medquizai-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: YOUR_ECR_REPO/medquizai-frontend:latest   # replace with your ECR URI
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medquizai-frontend-svc
+  namespace: medquizai
+spec:
+  selector:
+    app: medquizai-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer   # creates AWS ALB automatically
