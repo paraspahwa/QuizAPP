@@ -1,117 +1,31 @@
-# ── Frontend SG (public EC2) ──────────────────────────────────────
-resource "aws_security_group" "frontend" {
-  name        = "${var.project}-${var.environment}-frontend-sg"
-  description = "Frontend EC2: allow HTTP, HTTPS, SSH"
-  vpc_id      = var.vpc_id
 
-  # HTTP
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # HTTPS
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # App port
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # SSH (restrict to your IP in production)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]   # ← replace with your IP/32
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = { Name = "${var.project}-${var.environment}-frontend-sg" }
+resource "aws_iam_instance_profile" "this" {
+  name = "${var.name}-${var.environment}-profile"
+  role = var.iam_role_arn != "" ? split("/", var.iam_role_arn)[1] : null
 }
 
-# ── Backend SG (private EC2) ──────────────────────────────────────
-resource "aws_security_group" "backend" {
-  name        = "${var.project}-${var.environment}-backend-sg"
-  description = "Backend EC2: allow traffic only from frontend SG and EKS"
-  vpc_id      = var.vpc_id
+resource "aws_instance" "this" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  subnet_id                   = var.subnet_id
+  vpc_security_group_ids      = [var.security_group_id]
+  key_name                    = var.key_name
+  associate_public_ip_address = var.public_ip
+  iam_instance_profile        = aws_iam_instance_profile.this.name
+  user_data                   = var.user_data
 
-  # FastAPI — from frontend only
-  ingress {
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.frontend.id]
-  }
-  # FastAPI — from EKS nodes
-  ingress {
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.eks.id]
-  }
-  # SSH — from within VPC only (via bastion or SSM)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = 20
+    delete_on_termination = true
+    encrypted             = true
   }
 
-  tags = { Name = "${var.project}-${var.environment}-backend-sg" }
-}
-
-# ── EKS Cluster SG ────────────────────────────────────────────────
-resource "aws_security_group" "eks" {
-  name        = "${var.project}-${var.environment}-eks-sg"
-  description = "EKS cluster and worker nodes"
-  vpc_id      = var.vpc_id
-
-  # Nodes talk to each other
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
-  # kubectl API from VPC
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-  # NodePort range
-  ingress {
-    from_port   = 30000
-    to_port     = 32767
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"   # IMDSv2 enforced
+    http_put_response_hop_limit = 1
   }
 
-  tags = { Name = "${var.project}-${var.environment}-eks-sg" }
+  tags = { Name = "${var.name}-${var.environment}" }
 }
