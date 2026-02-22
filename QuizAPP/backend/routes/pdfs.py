@@ -52,6 +52,7 @@ def delete_pdf(pdf_id: int, user=Depends(get_current_user)):
     if os.path.exists(file_path):
         os.remove(file_path)
     conn.execute("DELETE FROM pdfs WHERE id=?", (pdf_id,))
+    conn.execute("DELETE FROM quiz_cache WHERE pdf_id=?", (pdf_id,))
     conn.commit()
     conn.close()
     return {"ok": True}

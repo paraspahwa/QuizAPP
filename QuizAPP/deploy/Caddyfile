@@ -1,0 +1,23 @@
+# ─── REPLACE yourdomain.com WITH YOUR ACTUAL DOMAIN ───
+# Caddy auto-provisions free Let's Encrypt SSL certificates
+
+yourdomain.com {
+    # Frontend (React app)
+    reverse_proxy frontend:80
+
+    # Backend API
+    handle_path /api/* {
+        reverse_proxy backend:8000
+    }
+}
+
+# ─── For local/IP-only usage (no domain), use this instead: ───
+# Uncomment the block below and comment out the block above
+#
+# :80 {
+#     reverse_proxy frontend:80
+#
+#     handle_path /api/* {
+#         reverse_proxy backend:8000
+#     }
+# }

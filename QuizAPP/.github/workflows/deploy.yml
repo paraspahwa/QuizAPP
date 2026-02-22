@@ -1,102 +1,13 @@
-name: Deploy to EC2
+name: Build & Deploy
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 jobs:
-  # ── Test ──────────────────────────────────────────────────────
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install backend deps
-        run: |
-          cd backend
-          pip install -r requirements.txt
-
-      - name: Lint backend
-        run: |
-          pip install flake8
-          flake8 backend/ --max-line-length=120 --exclude=__pycache__ || true
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package.json
-
-      - name: Install & build frontend
-        run: |
-          cd frontend
-          npm install
-          npm run build
-
-  # ── Build & Push Docker images ────────────────────────────────
-  build:
-    name: Build & Push Images
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/medquizai-backend:latest
-            ghcr.io/${{ github.repository_owner }}/medquizai-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/medquizai-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/medquizai-frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ── Deploy to EC2 ─────────────────────────────────────────────
   deploy:
-    name: Deploy to EC2
+    name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
@@ -104,44 +15,20 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key:      ${{ secrets.EC2_SSH_KEY }}
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /home/ubuntu/QuizAPP
+            cd ~/QuizAPP
 
-            echo "Pulling latest code..."
+            echo "📥 Pulling latest code..."
             git pull origin main
 
-            echo "Logging into GitHub Container Registry..."
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "🏗️  Rebuilding containers..."
+            docker compose -f docker-compose.prod.yml up -d --build
 
-            echo "Pulling latest images..."
-            docker pull ghcr.io/${{ github.repository_owner }}/medquizai-backend:latest
-            docker pull ghcr.io/${{ github.repository_owner }}/medquizai-frontend:latest
-
-            echo "Restarting containers..."
-            docker-compose down
-            docker-compose up -d
-
-            echo "Cleaning up old images..."
+            echo "🧹 Cleaning up old images..."
             docker image prune -f
 
             echo "✅ Deployment complete!"
-
-  # ── Notify ────────────────────────────────────────────────────
-  notify:
-    name: Notify Result
-    runs-on: ubuntu-latest
-    needs: [test, build, deploy]
-    if: always()
-    steps:
-      - name: Deployment status
-        run: |
-          if [ "${{ needs.deploy.result }}" == "success" ]; then
-            echo "✅ Deployment succeeded!"
-          else
-            echo "❌ Deployment failed. Check logs above."
-            exit 1
-          fi

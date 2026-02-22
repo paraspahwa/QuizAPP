@@ -64,5 +64,17 @@ def init_user_db(user_id: int):
             last_session   TEXT
         )
     """)
+    # ── Quiz cache table (saves OpenAI API costs) ──
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quiz_cache (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            pdf_id         INTEGER NOT NULL REFERENCES pdfs(id) ON DELETE CASCADE,
+            num_questions  INTEGER NOT NULL,
+            difficulty     TEXT    NOT NULL,
+            quiz_json      TEXT    NOT NULL,
+            created_at     TEXT    DEFAULT (datetime('now')),
+            UNIQUE(pdf_id, num_questions, difficulty)
+        )
+    """)
     conn.commit()
     conn.close()
