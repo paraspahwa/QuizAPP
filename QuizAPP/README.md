@@ -36,7 +36,14 @@ Open **http://localhost:3000**
 ssh root@your-server-ip
 # Run the VPS setup script
 bash <(curl -sSL https://raw.githubusercontent.com/paraspahwa/QuizAPP/main/deploy/vps-setup.sh)
-```
+`Every push to main auto-deploys to your VPS.
+
+Add these GitHub Secrets (Settings → Secrets → Actions):
+
+VPS_HOST — your server public IP
+VPS_USER — appuser (or ubuntu)
+VPS_SSH_KEY — contents of your SSH private key
+``
 
 ### Configure and launch:
 ```bash
