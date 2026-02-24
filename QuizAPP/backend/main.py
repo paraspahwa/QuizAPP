@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from payment import router as payment_router
 from database import init_main_db
 from routes import auth, pdfs, quiz
 
 app = FastAPI(title="MedQuiz AI API")
+app.include_router(payment_router)
 
 app.add_middleware(
     CORSMiddleware,
