@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: YOUR_ECR_REPO/medquizai-backend:latest   # replace with your ECR URI
+          image: paraspahwa5/medquizai-backend:latest   # replace with your ECR URI
           ports:
             - containerPort: 8000
           env:
